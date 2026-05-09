@@ -6,14 +6,14 @@
     <title>AutoBlog SaaS</title>
     
     <!-- Carrega o Tailwind CSS para o design -->
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Carrega o React e ReactDOM diretamente no navegador -->
-    <script crossorigin src="[https://unpkg.com/react@18/umd/react.production.min.js](https://unpkg.com/react@18/umd/react.production.min.js)"></script>
-    <script crossorigin src="[https://unpkg.com/react-dom@18/umd/react-dom.production.min.js](https://unpkg.com/react-dom@18/umd/react-dom.production.min.js)"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
     <!-- Carrega o Babel para compilar o código na hora -->
-    <script src="[https://unpkg.com/@babel/standalone/babel.min.js](https://unpkg.com/@babel/standalone/babel.min.js)"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
         body { margin: 0; padding: 0; background-color: #f8fafc; }
@@ -55,12 +55,12 @@
             const [settings, setSettings] = useState({
                 apiKey: '',           
                 aiProvider: 'gemini', 
-                gasUrl: '[https://script.google.com/macros/s/AKfycbxaCcrMZ9znYwD74xlWg6DUbTfnCjx8q8Nx1iRahavfiA91PNPzk3pcBzrn9RPQH5VN/exec](https://script.google.com/macros/s/AKfycbxaCcrMZ9znYwD74xlWg6DUbTfnCjx8q8Nx1iRahavfiA91PNPzk3pcBzrn9RPQH5VN/exec)'
+                gasUrl: 'https://script.google.com/macros/s/AKfycbydMhVepJiCyDVIC28KB1Yt6l2F9RXEluHPVYRRE-xD1EHPKxKGN_WPlEWkdZLrpkS9/exec' // URL ATUALIZADA
             });
 
             // Dados iniciais
             const [blogs, setBlogs] = useState([
-                { id: '1', name: 'Diário de Prontidão', bloggerId: '123456789', url: '[https://diariodeprontidao.blogspot.com/](https://diariodeprontidao.blogspot.com/)', category: 'Geral', status: 'Ativo' }
+                { id: '1', name: 'Diário de Prontidão', bloggerId: '123456789', url: 'https://diariodeprontidao.blogspot.com/', category: 'Geral', status: 'Ativo' }
             ]);
             const [posts, setPosts] = useState([
                 { id: '1', title: 'Como iniciar no Marketing Digital', blogName: 'Diário de Prontidão', category: 'Marketing', status: 'Publicado', date: '2026-05-09' },
@@ -77,7 +77,7 @@
                     display: "standalone",
                     background_color: "#0f172a",
                     theme_color: "#3b82f6",
-                    icons: [{ src: "[https://cdn-icons-png.flaticon.com/512/6062/6062646.png](https://cdn-icons-png.flaticon.com/512/6062/6062646.png)", sizes: "512x512", type: "image/png" }]
+                    icons: [{ src: "https://cdn-icons-png.flaticon.com/512/6062/6062646.png", sizes: "512x512", type: "image/png" }]
                 };
                 const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
                 const manifestUrl = URL.createObjectURL(blob);
@@ -109,7 +109,7 @@
 
             const showNotification = (message, type = 'success') => {
                 setNotification({ message, type });
-                setTimeout(() => setNotification(null), 6000); // Aumentei o tempo para dar tempo de ler os erros
+                setTimeout(() => setNotification(null), 6000); 
             };
 
             return (
@@ -310,44 +310,29 @@
                 setLoading(true);
                 try {
                     const prompt = `Você é um redator profissional especializado em SEO. Crie uma postagem original para blog com base nas seguintes informações: Tema: "${formData.theme}", Categoria: "${formData.category}", Link: "${formData.referenceLink}", Palavras-chave: "${formData.keywords}", Tom: "${formData.tone}". Gere conteúdo HTML limpo (<h2>, <p>, <ul>). Responda APENAS com um objeto JSON válido, sem usar formatação markdown ou blocos de código: {"title": "Título", "content": "HTML...", "seoDescription": "SEO...", "tags": "tags", "suggestedImage": "Prompt"}`;
-                    let resultText = "";
+                    
+                    // --- PONTE COM O GOOGLE APPS SCRIPT ---
+                    // Isso evita o erro CORS, passando a responsabilidade de contatar a IA para o servidor do Google
+                    const response = await fetch(settings.gasUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'generatePost',
+                            payload: {
+                                provider: settings.aiProvider,
+                                apiKey: settings.apiKey,
+                                prompt: prompt
+                            }
+                        })
+                    });
 
-                    if (settings.aiProvider === 'gemini') {
-                        // Alterado para o modelo 1.5-flash que é o oficial aberto para uso geral
-                        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${settings.apiKey}`, { 
-                            method: 'POST', 
-                            headers: { 'Content-Type': 'application/json' }, 
-                            body: JSON.stringify({ 
-                                contents: [{ parts: [{ text: prompt }] }], 
-                                generationConfig: { responseMimeType: "application/json" } 
-                            }) 
-                        });
-                        const data = await res.json();
-                        if (!res.ok) throw new Error(data.error?.message || "Erro desconhecido na API do Gemini.");
-                        resultText = data.candidates[0].content.parts[0].text;
-
-                    } else if (settings.aiProvider === 'openai') {
-                        const res = await fetch('[https://api.openai.com/v1/chat/completions](https://api.openai.com/v1/chat/completions)', { 
-                            method: 'POST', 
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` }, 
-                            body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" } }) 
-                        });
-                        const data = await res.json();
-                        if (!res.ok) throw new Error(data.error?.message || "Erro desconhecido na API da OpenAI.");
-                        resultText = data.choices[0].message.content;
-
-                    } else if (settings.aiProvider === 'groq') {
-                        const res = await fetch('[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)', { 
-                            method: 'POST', 
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` }, 
-                            body: JSON.stringify({ model: "llama3-70b-8192", messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" } }) 
-                        });
-                        const data = await res.json();
-                        if (!res.ok) throw new Error(data.error?.message || "Erro desconhecido na API da Groq.");
-                        resultText = data.choices[0].message.content;
+                    const responseData = await response.json();
+                    
+                    if (!responseData.success) {
+                        throw new Error(responseData.error);
                     }
 
-                    // Limpa qualquer sujeira do Markdown que a IA possa ter adicionado (ex: ```json)
+                    const resultText = responseData.data.text;
                     let cleanJson = resultText.replace(/```json/gi, '').replace(/```/g, '').trim();
                     const parsedData = JSON.parse(cleanJson);
 
@@ -356,12 +341,8 @@
                     setActiveTab('editor');
 
                 } catch (error) {
-                    console.error("LOG DE ERRO DA API:", error);
-                    let errorMessage = error.message;
-                    if(errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
-                        errorMessage = "Acesso bloqueado pela API (Erro de CORS) ou sem conexão de internet. Verifique sua chave ou restrições da conta.";
-                    }
-                    showNotification('Falha ao gerar postagem: ' + errorMessage, 'error');
+                    console.error("ERRO:", error);
+                    showNotification('Erro retornado pela IA: ' + error.message, 'error');
                 } finally { 
                     setLoading(false); 
                 }
@@ -386,7 +367,7 @@
                                 <div><label className="block text-sm font-semibold text-slate-700 mb-1">Categoria / Marcador</label><input type="text" placeholder="Tecnologia" className="w-full border rounded-lg p-3 bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} /></div>
                             </div>
                             <button type="submit" disabled={loading} className={`w-full mt-6 py-4 rounded-xl text-white font-bold md:text-lg flex justify-center items-center gap-3 transition-all shadow-lg ${loading ? 'bg-blue-400' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700'}`}>
-                                {loading ? <><IconLoader className="w-5 h-5" /> Gerando Conteúdo...</> : <><IconSparkles className="w-5 h-5" /> Gerar Postagem Mágica</>}
+                                {loading ? <><IconLoader className="w-5 h-5" /> Processando com IA...</> : <><IconSparkles className="w-5 h-5" /> Gerar Postagem Mágica</>}
                             </button>
                         </form>
                     </div>
