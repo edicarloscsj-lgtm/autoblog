@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AutoBlog SaaS</title>
     
-    <!-- Capturador de Erros Críticos (Evita a tela branca de carregamento) -->
     <script>
         window.onerror = function(msg, url, lineNo, columnNo, error) {
             document.body.innerHTML = '<div style="color:white; background:#ef4444; padding:20px; font-family:sans-serif; margin:20px; border-radius:8px;"><h3>Erro de Inicialização:</h3><p>' + msg + '</p></div>';
@@ -13,7 +12,6 @@
         };
     </script>
 
-    <!-- Servidores super estáveis -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -48,9 +46,8 @@
         const IconMenu = ({className}) => <svg className={className} width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>;
         const IconX = ({className}) => <svg className={className} width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
         const IconTrash = ({className}) => <svg className={className} width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
-        const IconLock = ({className}) => <svg className={className} width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>;
+        const IconRefresh = ({className}) => <svg className={className} width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>;
 
-        // Sistema Anti-Tela Branca (Error Boundary)
         class ErrorBoundary extends React.Component {
             constructor(props) { super(props); this.state = { hasError: false, errorInfo: null }; }
             static getDerivedStateFromError(error) { return { hasError: true, errorInfo: error }; }
@@ -58,9 +55,8 @@
                 if (this.state.hasError) {
                     return (
                         <div className="p-8 m-8 bg-red-50 border-2 border-red-500 rounded-lg">
-                            <h1 className="text-2xl font-bold text-red-700 mb-4">Erro de Renderização React</h1>
+                            <h1 className="text-2xl font-bold text-red-700 mb-4">Erro Crítico</h1>
                             <p className="text-red-600 font-mono text-sm">{this.state.errorInfo.toString()}</p>
-                            <p className="text-slate-600 mt-4 text-sm">Por favor, envie este erro para suporte.</p>
                         </div>
                     );
                 }
@@ -71,23 +67,69 @@
         function App() {
             const [activeTab, setActiveTab] = useState('dashboard');
             const [notification, setNotification] = useState(null);
+            const [isLoadingData, setIsLoadingData] = useState(false);
 
-            const [settings, setSettings] = useState({
-                apiKey: '',           
-                aiProvider: 'gemini', 
-                gasUrl: 'https://script.google.com/macros/s/AKfycbzXwX0h_S-6NmQIAE5kQaBRYMAL8kMCOLByPE-m51BGBJRbpv9SeJvutW59wel5ZRfM/exec' 
+            // SISTEMA DE MEMÓRIA (Salva as configurações no navegador)
+            const [settings, setSettings] = useState(() => {
+                const saved = localStorage.getItem('autoblog_settings');
+                return saved ? JSON.parse(saved) : {
+                    apiKey: '',           
+                    aiProvider: 'gemini', 
+                    gasUrl: 'https://script.google.com/macros/s/AKfycbz65vbQGYCbbvoauUZKOB8ub2vmEmNayehU3uSgBRu-E6TcL4v4SAyHUx727ABKakvj/exec'
+                };
             });
 
-            const [blogs, setBlogs] = useState([
-                { id: '1', name: 'Diário de Prontidão', bloggerId: '123456789', url: 'https://diariodeprontidao.blogspot.com/', category: 'Geral', status: 'Ativo' }
-            ]);
+            const [blogs, setBlogs] = useState([]);
             const [posts, setPosts] = useState([]);
             const [generatedPost, setGeneratedPost] = useState(null);
             const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+            // Salva as configs sempre que elas mudarem
+            useEffect(() => {
+                localStorage.setItem('autoblog_settings', JSON.stringify(settings));
+            }, [settings]);
+
+            // SISTEMA DE SINCRONIZAÇÃO (Puxa os dados da planilha ao abrir o site)
+            const syncData = () => {
+                if(!settings.gasUrl) return;
+                setIsLoadingData(true);
+                fetch(settings.gasUrl + '?action=getData')
+                    .then(res => res.json())
+                    .then(result => {
+                        if (result.success) {
+                            const loadedBlogs = result.data.blogs || [];
+                            setBlogs(loadedBlogs);
+                            
+                            const loadedPosts = (result.data.posts || []).map(post => {
+                                const blogInfo = loadedBlogs.find(b => b.id === post.blogId);
+                                return {
+                                    ...post,
+                                    blogName: blogInfo ? blogInfo.name : 'Blog Desconhecido',
+                                    category: blogInfo ? blogInfo.category : '',
+                                    bloggerId: blogInfo ? blogInfo.bloggerId : ''
+                                };
+                            });
+                            setPosts(loadedPosts);
+                        }
+                    })
+                    .catch(err => console.error("Erro ao sincronizar:", err))
+                    .finally(() => setIsLoadingData(false));
+            };
+
+            // Puxa os dados automaticamente quando a página abre
+            useEffect(() => {
+                syncData();
+            }, []);
+
             const showNotification = (message, type = 'success') => {
                 setNotification({ message, type });
-                setTimeout(() => setNotification(null), 6000); 
+                setTimeout(() => setNotification(null), 5000); 
+            };
+
+            const handleEditDraft = (postToEdit) => {
+                setGeneratedPost(postToEdit);
+                setActiveTab('editor');
+                showNotification('Rascunho aberto no editor!', 'success');
             };
 
             return (
@@ -120,8 +162,9 @@
                             <SidebarItem icon={<IconSettings className="w-5 h-5"/>} label="Configurações" isActive={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }} />
                         </nav>
                         <div className="p-4 border-t border-slate-800 text-sm">
-                            <p>Plano: <span className="text-blue-400 font-semibold">Pro SaaS</span></p>
-                            <p className="text-slate-500 mt-1">Status API: <span className="text-green-400">Online</span></p>
+                            <button onClick={syncData} disabled={isLoadingData} className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 py-2 rounded-lg transition-colors">
+                                <IconRefresh className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} /> Sincronizar
+                            </button>
                         </div>
                     </aside>
 
@@ -137,7 +180,7 @@
                             {activeTab === 'blogs' ? <BlogManager blogs={blogs} setBlogs={setBlogs} showNotification={showNotification} settings={settings} /> : null}
                             {activeTab === 'create' ? <PostGenerator blogs={blogs} setGeneratedPost={setGeneratedPost} setActiveTab={setActiveTab} showNotification={showNotification} settings={settings} /> : null}
                             {activeTab === 'editor' && generatedPost ? <PostEditor post={generatedPost} setPost={setGeneratedPost} showNotification={showNotification} setActiveTab={setActiveTab} setPosts={setPosts} settings={settings} /> : null}
-                            {activeTab === 'history' ? <HistoryTab posts={posts} /> : null}
+                            {activeTab === 'history' ? <HistoryTab posts={posts} onEditDraft={handleEditDraft} /> : null}
                             {activeTab === 'settings' ? <SettingsTab showNotification={showNotification} settings={settings} setSettings={setSettings} /> : null}
                         </div>
                     </main>
@@ -172,8 +215,8 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {posts.length === 0 ? <tr><td colSpan="4" className="py-4 text-slate-400 text-center">Nenhuma postagem ainda.</td></tr> : null}
-                                    {posts.map((post) => (
+                                    {posts.length === 0 ? <tr><td colSpan="4" className="py-4 text-slate-400 text-center">Nenhuma postagem encontrada na planilha.</td></tr> : null}
+                                    {posts.slice(0, 5).map((post) => (
                                         <tr key={post.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
                                             <td className="py-4 font-medium text-slate-700">{post.title}</td>
                                             <td className="py-4 text-slate-600">{post.blogName}</td>
@@ -201,7 +244,7 @@
                 setIsSaving(true);
                 const blogData = { ...newBlog, id: Date.now().toString(), status: 'Ativo' };
                 try {
-                    showNotification('Sincronizando blog com a Planilha...', 'success');
+                    showNotification('Sincronizando blog...', 'success');
                     const response = await fetch(settings.gasUrl, { 
                         method: 'POST', 
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
@@ -209,10 +252,10 @@
                     });
                     const responseData = await response.json();
                     if (!responseData.success) throw new Error(responseData.error);
-                    setBlogs([...blogs, blogData]); 
+                    setBlogs([blogData, ...blogs]); 
                     setShowModal(false); 
                     setNewBlog({ name: '', bloggerId: '', url: '', category: '' });
-                    showNotification('Blog salvo na sua planilha com sucesso!');
+                    showNotification('Blog salvo com sucesso!');
                 } catch (err) { 
                     showNotification('Erro ao salvar na planilha: ' + err.message, 'error'); 
                 }
@@ -222,7 +265,7 @@
             const handleDelete = async (blogId) => {
                 if(!confirm("Tem certeza que deseja excluir este blog?")) return;
                 try {
-                    showNotification('Excluindo blog...', 'success');
+                    showNotification('Excluindo...', 'success');
                     const response = await fetch(settings.gasUrl, { 
                         method: 'POST', 
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
@@ -231,9 +274,9 @@
                     const responseData = await response.json();
                     if (!responseData.success) throw new Error(responseData.error);
                     setBlogs(blogs.filter(b => b.id !== blogId)); 
-                    showNotification('Blog excluído com sucesso!');
+                    showNotification('Excluído com sucesso!');
                 } catch (err) { 
-                    showNotification('Erro ao comunicar exclusão para a planilha: ' + err.message, 'error'); 
+                    showNotification('Erro ao excluir: ' + err.message, 'error'); 
                 }
             };
 
@@ -245,27 +288,33 @@
                             <IconPlus className="w-4 h-4" /> Adicionar Blog
                         </button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                        {blogs.map(blog => (
-                            <div key={blog.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="bg-blue-50 text-blue-600 p-3 rounded-lg"><IconRss className="w-6 h-6" /></div>
-                                    <div className="flex gap-2 items-center">
-                                        <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium">{blog.status}</span>
-                                        <button onClick={() => handleDelete(blog.id)} className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1.5 rounded-md transition-colors" title="Excluir Blog">
-                                            <IconTrash className="w-4 h-4" />
-                                        </button>
+                    {blogs.length === 0 ? (
+                        <div className="text-center p-8 bg-slate-100 rounded-xl border border-dashed border-slate-300 text-slate-500">
+                            Você ainda não tem blogs cadastrados. Clique no botão azul para adicionar.
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                            {blogs.map(blog => (
+                                <div key={blog.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="bg-blue-50 text-blue-600 p-3 rounded-lg"><IconRss className="w-6 h-6" /></div>
+                                        <div className="flex gap-2 items-center">
+                                            <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium">{blog.status}</span>
+                                            <button onClick={() => handleDelete(blog.id)} className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1.5 rounded-md transition-colors" title="Excluir Blog">
+                                                <IconTrash className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-800 mb-1">{blog.name}</h3>
+                                    <p className="text-sm text-slate-500 mb-4 truncate">{blog.url}</p>
+                                    <div className="mt-auto space-y-2 text-sm text-slate-600">
+                                        <p><strong>ID:</strong> <span className="font-mono">{blog.bloggerId}</span></p>
+                                        <p><strong>Categoria:</strong> {blog.category}</p>
                                     </div>
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-800 mb-1">{blog.name}</h3>
-                                <p className="text-sm text-slate-500 mb-4 truncate">{blog.url}</p>
-                                <div className="mt-auto space-y-2 text-sm text-slate-600">
-                                    <p><strong>ID:</strong> <span className="font-mono">{blog.bloggerId}</span></p>
-                                    <p><strong>Categoria:</strong> {blog.category}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                     {showModal ? (
                         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
                             <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl fade-in">
@@ -306,6 +355,7 @@
             const handleGenerate = async (e) => {
                 e.preventDefault();
                 if (!settings.apiKey) return showNotification('Por favor, configure sua Chave API na aba "Configurações" primeiro.', 'error');
+                if (blogs.length === 0) return showNotification('Cadastre um blog primeiro!', 'error');
                 
                 setLoading(true);
                 try {
@@ -344,21 +394,21 @@ Responda APENAS com um objeto JSON válido, sem usar formatação markdown: {"ti
                     let cleanJson = resultText.replace(/\`\`\`json/gi, '').replace(/\`\`\`/g, '').trim();
                     const parsedData = JSON.parse(cleanJson);
 
-                    const selectedBlog = blogs.find(b => b.id === formData.blogId);
+                    const selectedBlog = blogs.find(b => b.id === formData.blogId) || blogs[0];
 
                     setGeneratedPost({ 
                         ...parsedData, 
-                        blogId: formData.blogId, 
-                        bloggerId: selectedBlog?.bloggerId, 
-                        blogName: selectedBlog?.name || 'Blog', 
-                        category: formData.category 
+                        blogId: selectedBlog.id, 
+                        bloggerId: selectedBlog.bloggerId, 
+                        blogName: selectedBlog.name, 
+                        category: formData.category || selectedBlog.category
                     });
                     
                     showNotification('Pronto! Revise sua super postagem.', 'success');
                     setActiveTab('editor');
 
                 } catch (error) {
-                    showNotification('Erro retornado pela IA: ' + error.message, 'error');
+                    showNotification('Erro da IA: ' + error.message, 'error');
                 } finally { 
                     setLoading(false); 
                 }
@@ -401,7 +451,7 @@ Responda APENAS com um objeto JSON válido, sem usar formatação markdown: {"ti
                                     <input type="text" placeholder="Tecnologia" className="w-full border rounded-lg p-3 bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
                                 </div>
                             </div>
-                            <button type="submit" disabled={loading} className={`w-full mt-6 py-4 rounded-xl text-white font-bold md:text-lg flex justify-center items-center gap-3 transition-all shadow-lg ${loading ? 'bg-blue-400' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700'}`}>
+                            <button type="submit" disabled={loading || blogs.length === 0} className={`w-full mt-6 py-4 rounded-xl text-white font-bold md:text-lg flex justify-center items-center gap-3 transition-all shadow-lg ${loading || blogs.length === 0 ? 'bg-blue-400' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700'}`}>
                                 {loading ? <><IconLoader className="w-5 h-5" /> Processando Mega Postagem...</> : <><IconSparkles className="w-5 h-5" /> Gerar Postagem Mágica</>}
                             </button>
                         </form>
@@ -415,8 +465,9 @@ Responda APENAS com um objeto JSON válido, sem usar formatação markdown: {"ti
 
             const handleSave = async (status) => {
                 setIsSaving(true);
-                const newPost = { 
-                    id: Date.now().toString(), 
+                // ATUALIZADO: Mantém o ID original se for um rascunho sendo editado
+                const postDataToSave = { 
+                    id: post.id || Date.now().toString(), 
                     blogId: post.blogId, 
                     bloggerId: post.bloggerId, 
                     title: post.title, 
@@ -436,13 +487,22 @@ Responda APENAS com um objeto JSON válido, sem usar formatação markdown: {"ti
                     const response = await fetch(settings.gasUrl, { 
                         method: 'POST', 
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
-                        body: JSON.stringify({ action: action, payload: newPost }) 
+                        body: JSON.stringify({ action: action, payload: postDataToSave }) 
                     });
 
                     const responseData = await response.json();
                     if (!responseData.success) throw new Error(responseData.error);
 
-                    setPosts(prev => [newPost, ...prev]);
+                    // Se já existia, atualiza. Se não, adiciona.
+                    setPosts(prev => {
+                        const exists = prev.find(p => p.id === postDataToSave.id);
+                        if (exists) {
+                            return prev.map(p => p.id === postDataToSave.id ? postDataToSave : p);
+                        } else {
+                            return [postDataToSave, ...prev];
+                        }
+                    });
+                    
                     setActiveTab('history');
                     showNotification(responseData.data.message || 'Operação concluída com sucesso!');
                 } catch (err) {
@@ -456,7 +516,7 @@ Responda APENAS com um objeto JSON válido, sem usar formatação markdown: {"ti
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                         <div>
                             <h2 className="text-xl md:text-2xl font-bold text-slate-800">Editor de Postagem</h2>
-                            <p className="text-slate-500 text-sm">Blog: <strong>{post.blogName}</strong></p>
+                            <p className="text-slate-500 text-sm">Blog: <strong>{post.blogName}</strong> {post.status === 'Rascunho' ? '(Editando Rascunho)' : ''}</p>
                         </div>
                         <div className="flex flex-wrap gap-2 w-full md:w-auto">
                             <button onClick={() => handleSave('Rascunho')} disabled={isSaving} className="flex-1 md:flex-none justify-center flex items-center gap-2 bg-white border border-slate-300 text-slate-700 px-3 md:px-4 py-2 rounded-lg hover:bg-slate-50">
@@ -502,7 +562,8 @@ Responda APENAS com um objeto JSON válido, sem usar formatação markdown: {"ti
             );
         }
 
-        function HistoryTab({ posts }) {
+        // NOVO: Adicionado botão de Editar aos rascunhos
+        function HistoryTab({ posts, onEditDraft }) {
             return (
                 <div className="fade-in">
                     <h2 className="text-2xl font-bold mb-6 text-slate-800">Histórico de Postagens</h2>
@@ -513,24 +574,28 @@ Responda APENAS com um objeto JSON válido, sem usar formatação markdown: {"ti
                                     <tr className="text-sm text-slate-600">
                                         <th className="py-4 px-6 font-semibold">Título</th>
                                         <th className="py-4 px-6 font-semibold">Blog</th>
-                                        <th className="py-4 px-6 font-semibold">Categoria</th>
                                         <th className="py-4 px-6 font-semibold">Status</th>
                                         <th className="py-4 px-6 font-semibold">Data</th>
+                                        <th className="py-4 px-6 font-semibold text-right">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {posts.length === 0 ? <tr><td colSpan="5" className="py-4 px-6 text-slate-400 text-center">Nenhum histórico disponível.</td></tr> : null}
+                                    {posts.length === 0 ? <tr><td colSpan="5" className="py-4 px-6 text-slate-400 text-center">Nenhum histórico encontrado na planilha.</td></tr> : null}
                                     {posts.map((post) => (
                                         <tr key={post.id} className="hover:bg-slate-50 transition-colors">
                                             <td className="py-4 px-6 font-medium text-slate-800">{post.title}</td>
                                             <td className="py-4 px-6 text-slate-600">{post.blogName}</td>
-                                            <td className="py-4 px-6 text-slate-600">
-                                                <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs border border-slate-200">{post.category || 'Geral'}</span>
-                                            </td>
                                             <td className="py-4 px-6">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${post.status === 'Publicado' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{post.status}</span>
                                             </td>
                                             <td className="py-4 px-6 text-slate-500 text-sm">{post.date}</td>
+                                            <td className="py-4 px-6 text-right">
+                                                {post.status === 'Rascunho' ? (
+                                                    <button onClick={() => onEditDraft(post)} className="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center gap-1 justify-end w-full">
+                                                        <IconPen className="w-4 h-4" /> Editar
+                                                    </button>
+                                                ) : <span className="text-slate-300 text-xs">Já publicado</span>}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -572,15 +637,15 @@ Responda APENAS com um objeto JSON válido, sem usar formatação markdown: {"ti
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Google Apps Script URL</label>
+                                    {/* ATUALIZADO: Campo destravado para você poder colar sua nova URL se o Google mudar */}
                                     <div className="relative">
-                                        <input type="text" readOnly className="w-full border rounded-lg p-3 pr-10 bg-slate-100 text-slate-400 outline-none font-mono text-xs cursor-not-allowed select-none" value={settings.gasUrl} />
-                                        <IconLock className="w-4 h-4 absolute right-3 top-3.5 text-slate-400" />
+                                        <input type="text" className="w-full border rounded-lg p-3 bg-white text-slate-700 outline-none font-mono text-xs focus:ring-2 focus:ring-blue-500" value={settings.gasUrl} onChange={(e) => setSettings({...settings, gasUrl: e.target.value})} />
                                     </div>
-                                    <p className="text-xs text-amber-600 mt-2 flex items-center gap-1"><IconLock className="w-3 h-3"/> URL travada por segurança.</p>
+                                    <p className="text-xs text-slate-500 mt-2">Cole aqui a URL gerada na sua "Nova Implantação" do Google.</p>
                                 </div>
                             </div>
                         </div>
-                        <button type="submit" className="w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 shadow-md">Salvar</button>
+                        <button type="submit" className="w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 shadow-md">Salvar Configurações</button>
                     </form>
                 </div>
             );
